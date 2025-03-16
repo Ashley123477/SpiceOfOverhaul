@@ -48,35 +48,43 @@ public abstract class FoodDataMixin implements FoodHashAccessor {
     @Shadow public abstract void eat(int p_38708_, float p_38709_);
     public void eat(ItemStack itemStack, FoodProperties properties, Player player){
         if (Config.enableSOLModule) {
-                String itemString = itemStack.getItem().toString().replace(" ", "");
-                if (!this.foodQueue.contains(itemString)) {
-                    this.foodHash.put(itemString, 0);
+            String itemString = itemStack.getItem().toString().replace(" ", "");
+            if (!this.foodQueue.contains(itemString)) {
+                this.foodHash.put(itemString, 0);
+            }
+            int eaten = this.foodHash.get(itemString);
+            
+            this.saturationLevel = Math.min(this.saturationLevel + properties.saturation(), 20.0F);
+
+            this.eat((int) (properties.nutrition() * Math.pow(0.7, eaten)), 0.0F); // Pass 0 saturation to prevent override
+
+            if (this.foodQueue.size() >= this.historyLength) {
+                String elem = this.foodQueue.pollFirst();
+                this.foodHash.put(elem, this.foodHash.get(elem) - 1);
+            }
+            this.foodHash.put(itemString, this.foodHash.get(itemString) + 1);
+            this.foodQueue.add(itemString);
+
+            if (Config.enableWellFed) {
+                MobEffect effect = SpiceOfOverhaul.WELLFED.get();
+                int duration = 0;
+                if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 4) {
+                    duration = 40 * 20;
+                } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 7) {
+                    duration = 120 * 20;
+                } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 10) {
+                    duration = 240 * 20;
+                } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 14) {
+                    duration = 480 * 20;
                 }
-                int eaten = this.foodHash.get(itemString);
-                this.eat((int) (properties.nutrition() * Math.pow(0.7, eaten)), properties.saturation());
-                if (this.foodQueue.size() >= this.historyLength) {
-                    String elem = this.foodQueue.pollFirst();
-                    this.foodHash.put(elem, this.foodHash.get(elem) - 1);
+                if (duration > 0) {
+                    player.addEffect(new MobEffectInstance(SpiceOfOverhaul.WELLFED, duration, 0));
                 }
-                this.foodHash.put(itemString, this.foodHash.get(itemString) + 1);
-                this.foodQueue.add(itemString);
-                if (Config.enableWellFed) {
-                    MobEffect effect = SpiceOfOverhaul.WELLFED.get();
-                    int duration = 0;
-                    if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 4) {
-                        duration = 40 * 20;
-                    } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 7) {
-                        duration = 120 * 20;
-                    } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 10) {
-                        duration = 240 * 20;
-                    } else if ((int) (properties.nutrition() * Math.pow(0.7, eaten)) >= 14) {
-                        duration = 480 * 20;
-                    }
-                    if (duration>0){player.addEffect(new MobEffectInstance(SpiceOfOverhaul.WELLFED, duration, 0));}
-                }
+            }
         }
         else {
-                this.eat(properties.nutrition(), properties.saturation());
+            this.saturationLevel = Math.min(this.saturationLevel + properties.saturation(), 20.0F);
+            this.eat(properties.nutrition(), 0.0F);
         }
     }
     @Inject(at = @At(value = "TAIL"), method = "addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V")
